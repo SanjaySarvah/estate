@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import LinearGradient from 'react-native-linear-gradient';
 
 type Props = {
   onClose: () => void;
@@ -30,26 +31,36 @@ export default function SideMenu({ onClose }: Props) {
 
   return (
     <Animated.View style={styles.menu}>
-      <Text style={styles.header}>Menu</Text>
-      <View style={styles.divider} />
+  
+      <LinearGradient
+        colors={['#6a11cb', '#2575fc']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.headerContainer}
+      >
+        <Text style={styles.header}>Menu</Text>
+        <TouchableOpacity
+          style={styles.closeBtn}
+          onPress={onClose}
+          activeOpacity={0.7}
+        >
+          <MaterialIcons name="close" size={24} color="#fff" />
+        </TouchableOpacity>
+      </LinearGradient>
 
       {menuItems.map((item, index) => (
         <TouchableOpacity
           key={index}
           style={styles.menuItem}
+          activeOpacity={0.8}
           onPress={() => handleNavigate(item.screen)}
         >
-          <MaterialIcons name={item.icon} size={22} color="#333" />
+          <View style={styles.iconWrapper}>
+            <MaterialIcons name={item.icon} size={22} color="#fff" />
+          </View>
           <Text style={styles.menuText}>{item.label}</Text>
         </TouchableOpacity>
       ))}
-
-      <View style={styles.divider} />
-
-      <TouchableOpacity style={styles.menuItem} onPress={onClose}>
-        <MaterialIcons name="close" size={22} color="red" />
-        <Text style={[styles.menuText, { color: 'red' }]}>Close</Text>
-      </TouchableOpacity>
     </Animated.View>
   );
 }
@@ -59,35 +70,55 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     top: 0,
-    width: 240,
+    width: 260,
     height: '100%',
-    backgroundColor: '#fff',
-    padding: 20,
-    elevation: 8,
+    backgroundColor: '#f9f9f9',
+    elevation: 10,
     shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowOffset: { width: 2, height: 2 },
-    shadowRadius: 5,
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 2, height: 4 },
+    shadowRadius: 6,
+    borderTopRightRadius: 20,
+    borderBottomRightRadius: 20,
+    overflow: 'hidden',
+    
+  },
+  headerContainer: {
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   header: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
-    marginBottom: 12,
-    color: '#333',
+    color: '#fff',
   },
-  divider: {
-    height: 1,
-    backgroundColor: '#eee',
-    marginVertical: 10,
+  closeBtn: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 20,
+    padding: 6,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  iconWrapper: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#6a11cb',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    elevation: 3,
   },
   menuText: {
     fontSize: 16,
-    marginLeft: 12,
+    fontWeight: '500',
     color: '#333',
   },
 });
