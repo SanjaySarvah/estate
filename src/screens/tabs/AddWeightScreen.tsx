@@ -65,19 +65,19 @@ export default function AttendanceReport() {
       id: '1',
       workerId: 'KV001',
       name: 'Kamal',
-      profileImage: 'https://randomuser.me/api/portraits/men/1.jpg'
+      profileImage: 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
     },
     {
       id: '2',
       workerId: 'KV052',
       name: 'Sinu',
-      profileImage: 'https://randomuser.me/api/portraits/women/2.jpg'
+      profileImage: 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
     },
     {
       id: '3',
       workerId: 'KV013',
       name: 'Chittu',
-      profileImage: 'https://randomuser.me/api/portraits/men/3.jpg'
+      profileImage: 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
     },
   ];
 

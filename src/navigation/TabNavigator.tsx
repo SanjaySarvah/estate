@@ -2,25 +2,27 @@ import React from "react";
 import { View, TouchableOpacity, StyleSheet, Platform, Text } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import LinearGradient from "react-native-linear-gradient";
-import Ionicons from "react-native-vector-icons/Ionicons"; // Using Ionicons instead of MaterialIcons
+import Ionicons from "react-native-vector-icons/Ionicons";
+import MaterialIcons from "react-native-vector-icons/MaterialIcons"; // Added MaterialIcons
+
 import HomeScreen from "../screens/tabs/HomeScreen";
 import ProfileScreen from "../screens/tabs/ProfileScreen";
-import SettingsScreen from "../screens/tabs/SettingsScreen";
+import AddWeightScreen from "../screens/tabs/AddWeightScreen"; // Replace Settings with AddWeight
 import Attendancereport from "../screens/tabs/Attendancereport";
 import EmployeeAttendance from "../screens/tabs/EmployeAttendance";
 
-// Define tab names and their params
+// Tab Params
 type TabParamList = {
   Home: undefined;
   Attendancereport: undefined;
   AddEmp: undefined;
-  Settings: undefined;
+  AddWeight: undefined;
   Attendancepunch: undefined;
 };
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
-// Custom Center Tab Button for Punch
+// Custom Center Tab Button
 function CustomCenterButton({ children, onPress }: any) {
   return (
     <TouchableOpacity
@@ -49,12 +51,12 @@ export default function TabNavigator() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => {
-        const icons: Record<keyof TabParamList, string> = {
-          Home: "home",
-          AddEmp: "person-add",
-          Settings: "settings",
-          Attendancereport: "document-text",
-          Attendancepunch: "finger-print",
+        const icons: Record<keyof TabParamList, { type: "ion" | "material"; name: string }> = {
+          Home: { type: "ion", name: "home" },
+          AddEmp: { type: "ion", name: "person-add" },
+          AddWeight: { type: "material", name: "balance" }, // Weight icon
+          Attendancereport: { type: "ion", name: "document-text" },
+          Attendancepunch: { type: "ion", name: "finger-print" },
         };
 
         return {
@@ -76,13 +78,14 @@ export default function TabNavigator() {
               end={{ x: 1, y: 1 }}
             />
           ),
-          tabBarIcon: ({ color }) => (
-            <Ionicons
-              name={icons[route.name] || "help-circle-outline"}
-              size={26}
-              color={color}
-            />
-          ),
+          tabBarIcon: ({ color }) => {
+            const icon = icons[route.name];
+            return icon.type === "ion" ? (
+              <Ionicons name={icon.name} size={26} color={color} />
+            ) : (
+              <MaterialIcons name={icon.name} size={26} color={color} />
+            );
+          },
         };
       }}
     >
@@ -96,11 +99,11 @@ export default function TabNavigator() {
           tabBarIcon: () => (
             <Ionicons name="finger-print" size={30} color="#fff" />
           ),
-          tabBarLabel: () => null, // Hide default label
+          tabBarLabel: () => null,
         }}
       />
       <Tab.Screen name="AddEmp" component={ProfileScreen} />
-      <Tab.Screen name="Settings" component={SettingsScreen} />
+      <Tab.Screen name="AddWeight" component={AddWeightScreen} />
     </Tab.Navigator>
   );
 }

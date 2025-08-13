@@ -19,7 +19,7 @@ export default function SideMenu({ onClose }: Props) {
 
   const menuItems = [
     { label: 'Home', screen: 'Tabs', icon: 'home' },
-    { label: 'Redy', screen: 'Redy', icon: 'bolt' },
+    // { label: 'Redy', screen: 'Redy', icon: 'bolt' },
     { label: 'Attendance Report', screen: 'OnlineAttendanceReport', icon: 'assignment' },
     { label: 'Weight Report', screen: 'OnlineWeightReport', icon: 'monitor-weight' },
   ];

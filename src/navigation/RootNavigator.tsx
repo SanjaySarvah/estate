@@ -23,7 +23,7 @@ export default function RootNavigator() {
           <Stack.Screen name="Tabs" component={TabNavigator} />
 
           {/* Individual Screens (accessible from SideMenu) */}
-          <Stack.Screen name="Redy" component={RedyScreen} />
+          {/* <Stack.Screen name="Redy" component={RedyScreen} /> */}
           <Stack.Screen name="OnlineAttendanceReport" component={OnlineAttendanceReport} />
           <Stack.Screen name="OnlineWeightReport" component={OnlineWeightReport} />
         </Stack.Navigator>
