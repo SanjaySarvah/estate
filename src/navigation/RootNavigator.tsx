@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import TabNavigator from './TabNavigator';
-import SideMenu from '../components/SideMenu';
-import Header from '../components/Header';
-import RedyScreen from '../screens/RedyScreen';
-import OnlineAttendanceReport from '../screens/OnlineAttendanceReport';
-import OnlineWeightReport from '../screens/OnlineWeightReport';
+import React, { useState } from "react";
+import { View, StyleSheet } from "react-native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import TabNavigator from "./TabNavigator";
+import SideMenu from "../components/SideMenu";
+import Header from "../components/Header";
+import RedyScreen from "../screens/RedyScreen";
+import OnlineAttendanceReport from "../screens/OnlineAttendanceReport";
+import OnlineWeightReport from "../screens/OnlineWeightReport";
+
+// ✅ Import FaceRegister screen
+import FaceRegister from "../components/FaceRegister";
 
 const Stack = createNativeStackNavigator();
 
@@ -22,10 +25,12 @@ export default function RootNavigator() {
           {/* Bottom Tabs */}
           <Stack.Screen name="Tabs" component={TabNavigator} />
 
-          {/* Individual Screens (accessible from SideMenu) */}
-          {/* <Stack.Screen name="Redy" component={RedyScreen} /> */}
+          {/* Individual Screens */}
           <Stack.Screen name="OnlineAttendanceReport" component={OnlineAttendanceReport} />
           <Stack.Screen name="OnlineWeightReport" component={OnlineWeightReport} />
+
+          {/* ✅ Add FaceRegister screen */}
+          <Stack.Screen name="FaceRegister" component={FaceRegister} />
         </Stack.Navigator>
       </View>
 

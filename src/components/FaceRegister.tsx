@@ -1,64 +1,85 @@
 // src/components/FaceRegister.tsx
-import React, { useRef, useState } from "react";
-import { View, Text, TouchableOpacity, Image, TextInput, Modal, StyleSheet, ActivityIndicator } from "react-native";
-import { Camera } from "react-native-vision-camera";
-import FaceDetector from "@react-native-ml-kit/face-detection";
+import React, { useEffect, useRef, useState } from "react";
+import { View, Text, StyleSheet, ActivityIndicator, TextInput, TouchableOpacity, Image } from "react-native";
+import { Camera, useCameraDevice } from "react-native-vision-camera";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import Icon from "react-native-vector-icons/MaterialIcons";
 import Toast from "react-native-toast-message";
+import { useRoute, useNavigation } from "@react-navigation/native";
 
-type Props = {
-  device: any;
-  onClose: () => void;
-};
+export default function FaceRegister() {
+  const route = useRoute<any>();
+  const navigation = useNavigation<any>();
+  const { workerId, name: existingName } = route.params || {};
 
-export default function FaceRegister({ device, onClose }: Props) {
+  const device = useCameraDevice("back");
   const camera = useRef<Camera>(null);
-  const [photoPath, setPhotoPath] = useState("");
-  const [name, setName] = useState("");
+
+  const [hasPermission, setHasPermission] = useState(false);
   const [isProcessing, setProcessing] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
+  const [name, setName] = useState(existingName || "");
+  const [photoPath, setPhotoPath] = useState("");
+
+  useEffect(() => {
+    (async () => {
+      const camPermission = await Camera.requestCameraPermission();
+      setHasPermission(camPermission === "granted");
+    })();
+  }, []);
 
   const capturePhoto = async () => {
-    if (!camera.current) return;
+    if (!camera.current || isProcessing) return;
+
     try {
       setProcessing(true);
       const photo = await camera.current.takePhoto();
       const photoUri = `file://${photo.path}`;
-
-      const faces = await FaceDetector.detect(photoUri);
-      if (faces.length > 0) {
-        setPhotoPath(photoUri);
-        setModalVisible(true);
-      } else {
-        Toast.show({ type: "error", text1: "No Face Detected" });
-      }
+      setPhotoPath(photoUri);
+      Toast.show({ type: "success", text1: "Photo Captured" });
+    } catch (err) {
+      console.log("Error capturing photo:", err);
+      Toast.show({ type: "error", text1: "Failed to capture photo" });
+    } finally {
       setProcessing(false);
-    } catch (e) {
-      setProcessing(false);
-      console.log(e);
-      Toast.show({ type: "error", text1: "Capture failed" });
     }
   };
 
   const saveEntry = async () => {
-    const id = Date.now().toString();
-    const entry = { id, name, photoPath };
+    if (!name || !photoPath) {
+      Toast.show({ type: "error", text1: "Name & photo required" });
+      return;
+    }
+
+    const entry = { 
+      workerId, 
+      name, 
+      photoPath,
+      timestamp: new Date().toISOString()
+    };
+    
     try {
+      // Get existing face entries
       const existing = await AsyncStorage.getItem("faceEntries");
       const parsed = existing ? JSON.parse(existing) : [];
-      parsed.push(entry);
-      await AsyncStorage.setItem("faceEntries", JSON.stringify(parsed));
-      Toast.show({ type: "success", text1: "Employee Registered" });
-      setModalVisible(false);
-      setName("");
-      setPhotoPath("");
-      onClose();
+      
+      // Remove existing entry for this worker if exists
+      const filtered = parsed.filter((item: any) => item.workerId !== workerId);
+      
+      // Add new entry
+      filtered.push(entry);
+      
+      await AsyncStorage.setItem("faceEntries", JSON.stringify(filtered));
+      Toast.show({ type: "success", text1: "Face Registered Successfully" });
+      
+      // Navigate back and refresh the employee list
+      navigation.navigate('EmployeeRegistry', { refresh: true });
     } catch (err) {
       console.log(err);
-      Toast.show({ type: "error", text1: "Error saving employee" });
+      Toast.show({ type: "error", text1: "Error saving face" });
     }
   };
+
+  if (!device) return <Text style={styles.centerText}>No Camera Found</Text>;
+  if (!hasPermission) return <Text style={styles.centerText}>Camera Permission Denied</Text>;
 
   return (
     <View style={{ flex: 1 }}>
@@ -70,58 +91,89 @@ export default function FaceRegister({ device, onClose }: Props) {
         photo={true}
       />
 
-      <TouchableOpacity
-        style={styles.captureButton}
-        onPress={capturePhoto}
-      >
-        {isProcessing ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Icon name="camera-alt" size={28} color="#fff" />
-        )}
-      </TouchableOpacity>
-
-      {/* Modal for entering employee name */}
-      <Modal visible={modalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.card}>
-            <Image source={{ uri: photoPath }} style={styles.empImage} />
-            <Text>Enter Employee Name</Text>
-            <TextInput
-              style={styles.input}
-              value={name}
-              onChangeText={setName}
-              placeholder="Name"
-            />
-            <TouchableOpacity
-              style={[styles.saveBtn, !name && { backgroundColor: "grey" }]}
-              disabled={!name}
-              onPress={saveEntry}
-            >
-              <Text style={{ color: "#fff" }}>Save</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setModalVisible(false)}>
-              <Text style={{ color: "red" }}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
+      {isProcessing && (
+        <View style={styles.overlay}>
+          <ActivityIndicator size="large" color="#fff" />
         </View>
-      </Modal>
+      )}
+
+      <View style={styles.bottomSheet}>
+        <Text style={styles.label}>Name: {name}</Text>
+        <Text style={styles.label}>Worker ID: {workerId}</Text>
+
+        {photoPath ? (
+          <View style={styles.previewContainer}>
+            <Text style={styles.label}>Photo Preview:</Text>
+            <Image source={{ uri: photoPath }} style={styles.previewImage} />
+          </View>
+        ) : null}
+
+        <TouchableOpacity style={styles.btn} onPress={capturePhoto}>
+          <Text style={styles.btnText}>📸 Capture Photo</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.btn, { backgroundColor: photoPath ? "#28a745" : "#ccc" }]} 
+          onPress={saveEntry}
+          disabled={!photoPath}
+        >
+          <Text style={styles.btnText}>✅ Save Face</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.btn, { backgroundColor: "#6c757d" }]} 
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.btnText}>← Back</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  captureButton: {
-    position: "absolute",
-    bottom: 50,
-    alignSelf: "center",
-    backgroundColor: "#ff4b2b",
-    padding: 15,
-    borderRadius: 35,
+  centerText: { marginTop: 100, textAlign: "center" },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  modalOverlay: { flex: 1, justifyContent: "center", backgroundColor: "rgba(0,0,0,0.5)" },
-  card: { backgroundColor: "#fff", margin: 20, padding: 20, borderRadius: 10, alignItems: "center" },
-  empImage: { width: 80, height: 80, borderRadius: 40, marginBottom: 10 },
-  input: { borderWidth: 1, borderColor: "#ccc", width: "100%", padding: 10, marginVertical: 10 },
-  saveBtn: { backgroundColor: "#ff4b2b", padding: 10, borderRadius: 8, width: "100%", alignItems: "center" }
+  bottomSheet: {
+    position: "absolute",
+    bottom: 0,
+    width: "100%",
+    padding: 15,
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    maxHeight: "50%",
+  },
+  label: { fontSize: 14, fontWeight: "600", marginBottom: 6 },
+  previewContainer: {
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  previewImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 2,
+    borderColor: '#28a745',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
+  },
+  btn: {
+    backgroundColor: "#ff6600",
+    padding: 14,
+    borderRadius: 8,
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  btnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
 });

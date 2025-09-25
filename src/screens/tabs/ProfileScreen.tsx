@@ -1,22 +1,12 @@
 // components/AddRegistration.tsx
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  Modal,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  ScrollView,
-  Platform,
-  KeyboardAvoidingView,
-  ActivityIndicator,
-  Dimensions,
+import {View,Text,TextInput,Modal,TouchableOpacity,StyleSheet,Alert,ScrollView,Platform,
+  KeyboardAvoidingView,ActivityIndicator,Dimensions,Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { LinearGradient } from 'react-native-linear-gradient';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
@@ -50,9 +40,19 @@ type FormData = {
   joiningDate: string;
   role: string;
   password?: string;
+  
+};
+
+type FaceEntry = {
+  workerId: string;
+  name: string;
+  photoPath: string;
+  timestamp: string;
 };
 
 export default function AddRegistration() {
+  const navigation = useNavigation();
+  const isFocused = useIsFocused(); // Add this to refresh when returning from FaceRegister
   const [modalVisible, setModalVisible] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     workerId: '',
@@ -64,6 +64,7 @@ export default function AddRegistration() {
     password: '',
   });
   const [registrations, setRegistrations] = useState<FormData[]>([]);
+  const [faceEntries, setFaceEntries] = useState<FaceEntry[]>([]); // Add state for face entries
   const [searchQuery, setSearchQuery] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -77,7 +78,15 @@ export default function AddRegistration() {
 
   useEffect(() => {
     loadData();
+    loadFaceEntries(); // Load face entries when component mounts
   }, []);
+
+  // Reload face entries when screen is focused (returning from FaceRegister)
+  useEffect(() => {
+    if (isFocused) {
+      loadFaceEntries();
+    }
+  }, [isFocused]);
 
   useEffect(() => {
     calculateStats();
@@ -104,6 +113,39 @@ export default function AddRegistration() {
     } catch (error) {
       console.error('Failed to load data', error);
     }
+  };
+
+  // Add this function to load face entries
+  const loadFaceEntries = async () => {
+    try {
+      const stored = await AsyncStorage.getItem('faceEntries');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setFaceEntries(parsed);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load face entries', error);
+    }
+  };
+
+  // Add this function to get photo for a worker
+  const getWorkerPhoto = (workerId: string) => {
+    const faceEntry = faceEntries.find(entry => entry.workerId === workerId);
+    return faceEntry ? faceEntry.photoPath : null;
+  };
+
+  const handleFaceRegistration = (workerId: string, name: string) => {
+    if (!workerId || !name) {
+      Alert.alert('Error', 'Worker ID and Name are required for face registration');
+      return;
+    }
+    
+    navigation.navigate('FaceRegister', { 
+      workerId, 
+      name 
+    });
   };
 
   const handleChange = (key: keyof FormData, value: string) => {
@@ -305,76 +347,101 @@ export default function AddRegistration() {
             </TouchableOpacity>
           </View>
         ) : (
-          filteredRegistrations.map((item, index) => (
-            <View key={index} style={styles.card}>
-              <View style={styles.cardHeader}>
-                <View style={styles.avatar}>
-                  <Ionicons 
-                    name="person" 
-                    size={24} 
-                    color={item.role === 'Admin' ? '#6a11cb' : 
-                          item.role === 'Manager' ? '#2575fc' : '#4CAF50'} 
-                  />
+          filteredRegistrations.map((item, index) => {
+            const workerPhoto = getWorkerPhoto(item.workerId);
+            
+            return (
+              <View key={index} style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.avatar}>
+                    {workerPhoto ? (
+                      <Image 
+                        source={{ uri: workerPhoto }} 
+                        style={styles.avatarImage}
+                      />
+                    ) : (
+                      <Ionicons 
+                        name="person" 
+                        size={24} 
+                        color={item.role === 'Admin' ? '#6a11cb' : 
+                              item.role === 'Manager' ? '#2575fc' : '#4CAF50'} 
+                      />
+                    )}
+                  </View>
+                  <View>
+                    <Text style={styles.cardTitle}>{item.name}</Text>
+                    <Text style={styles.cardSubtitle}>ID: {item.workerId}</Text>
+                    {workerPhoto && (
+                      <Text style={styles.faceRegisteredText}>✓ Face Registered</Text>
+                    )}
+                  </View>
+                  <View style={styles.roleBadge}>
+                    <Ionicons 
+                      name={roles.find(r => r.value === item.role)?.icon || 'person'} 
+                      size={16} 
+                      color="#fff" 
+                    />
+                    <Text style={styles.roleText}>{item.role}</Text>
+                  </View>
                 </View>
-                <View>
-                  <Text style={styles.cardTitle}>{item.name}</Text>
-                  <Text style={styles.cardSubtitle}>ID: {item.workerId}</Text>
+                
+                <View style={styles.cardBody}>
+                  <View style={styles.detailRow}>
+                    <Ionicons name="briefcase-outline" size={16} color="#666" />
+                    <Text style={styles.detailText}>{item.jobTitle}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Ionicons name="location-outline" size={16} color="#666" />
+                    <Text style={styles.detailText}>{item.section}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Ionicons name="calendar-outline" size={16} color="#666" />
+                    <Text style={styles.detailText}>
+                      {item.joiningDate || 'Not specified'}
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.roleBadge}>
-                  <Ionicons 
-                    name={roles.find(r => r.value === item.role)?.icon || 'person'} 
-                    size={16} 
-                    color="#fff" 
-                  />
-                  <Text style={styles.roleText}>{item.role}</Text>
+                
+                <View style={styles.cardFooter}>
+                  <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={() => handleEdit(index)}
+                  >
+                    <Ionicons name="create-outline" size={18} color="#2575fc" />
+                    <Text style={styles.footerButtonText}>Edit</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => handleDelete(index)}
+                  >
+                    <Ionicons name="trash-outline" size={18} color="#ff4444" />
+                    <Text style={styles.footerButtonText}>Delete</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.faceButton,
+                      workerPhoto && styles.faceButtonRegistered
+                    ]}
+                    onPress={() => handleFaceRegistration(item.workerId, item.name)}
+                  >
+                    <Ionicons 
+                      name={workerPhoto ? "camera" : "camera-outline"} 
+                      size={18} 
+                      color={workerPhoto ? "#fff" : "#28a745"} 
+                    />
+                    <Text style={[
+                      styles.footerButtonText,
+                      workerPhoto && styles.faceButtonTextRegistered
+                    ]}>
+                      {workerPhoto ? 'Update Face' : 'Add Face'}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               </View>
-              
-              <View style={styles.cardBody}>
-                <View style={styles.detailRow}>
-                  <Ionicons name="briefcase-outline" size={16} color="#666" />
-                  <Text style={styles.detailText}>{item.jobTitle}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Ionicons name="location-outline" size={16} color="#666" />
-                  <Text style={styles.detailText}>{item.section}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Ionicons name="calendar-outline" size={16} color="#666" />
-                  <Text style={styles.detailText}>
-                    {item.joiningDate || 'Not specified'}
-                  </Text>
-                </View>
-              </View>
-              
-              <View style={styles.cardFooter}>
-  <TouchableOpacity
-    style={styles.editButton}
-    onPress={() => handleEdit(index)}
-  >
-    <Ionicons name="create-outline" size={18} color="#2575fc" />
-    <Text style={styles.footerButtonText}>Edit</Text>
-  </TouchableOpacity>
-
-  <TouchableOpacity
-    style={styles.deleteButton}
-    onPress={() => handleDelete(index)}
-  >
-    <Ionicons name="trash-outline" size={18} color="#ff4444" />
-    <Text style={styles.footerButtonText}>Delete</Text>
-  </TouchableOpacity>
-
-  <TouchableOpacity
-    style={styles.faceButton}
-    
-  >
-    <Ionicons name="camera-outline" size={18} color="#28a745" />
-    <Text style={styles.footerButtonText}>Add Face Registry</Text>
-  </TouchableOpacity>
-</View>
-
-            </View>
-          ))
+            );
+          })
         )}
       </ScrollView>
 
@@ -738,6 +805,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
+  avatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
   cardTitle: {
     fontSize: 18,
     fontWeight: '600',
@@ -746,6 +818,12 @@ const styles = StyleSheet.create({
   cardSubtitle: {
     fontSize: 14,
     color: '#666',
+  },
+  faceRegisteredText: {
+    fontSize: 12,
+    color: '#28a745',
+    fontWeight: '600',
+    marginTop: 2,
   },
   roleBadge: {
     flexDirection: 'row',
@@ -780,6 +858,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
     paddingTop: 12,
+    flexWrap: 'wrap',
   },
   editButton: {
     flexDirection: 'row',
@@ -789,6 +868,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     backgroundColor: '#e3f2fd',
     marginRight: 8,
+    marginBottom: 5,
   },
   deleteButton: {
     flexDirection: 'row',
@@ -797,6 +877,23 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 15,
     backgroundColor: '#ffebee',
+    marginRight: 8,
+    marginBottom: 5,
+  },
+  faceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+    backgroundColor: '#eafbea',
+    marginBottom: 5,
+  },
+  faceButtonRegistered: {
+    backgroundColor: '#28a745',
+  },
+  faceButtonTextRegistered: {
+    color: '#fff',
   },
   footerButtonText: {
     marginLeft: 4,
@@ -959,14 +1056,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
   },
-  faceButton: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  paddingVertical: 6,
-  paddingHorizontal: 12,
-  backgroundColor: '#eafbea',
-  borderRadius: 6,
-},
-
-
 });
