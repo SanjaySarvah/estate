@@ -6,12 +6,14 @@ import {
   ActivityIndicator,
   Modal,
   TouchableOpacity,
+  Alert,
 } from "react-native";
 import { Camera, useCameraDevice } from "react-native-vision-camera";
 import FaceDetector, { Face } from "@react-native-ml-kit/face-detection";
 import { compareFace } from "../../helpers/photoProcessor";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import CheckBox from "@react-native-community/checkbox";
 
 export default function EmployeeAttendance() {
   const navigation = useNavigation();
@@ -23,30 +25,41 @@ export default function EmployeeAttendance() {
   const [hasPermission, setHasPermission] = useState(false);
   const [isProcessing, setProcessing] = useState(false);
   const [scanned, setScanned] = useState(false);
-  const [isCameraActive, setCameraActive] = useState(true);
+  const [isCameraActive, setCameraActive] = useState(false);
 
   // Modal states
+  const [initialModalVisible, setInitialModalVisible] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalType, setModalType] = useState<
     "success" | "error" | "duplicate" | null
   >(null);
   const [matchedName, setMatchedName] = useState<string | null>(null);
 
-  // Request permission once
-  useEffect(() => {
-    (async () => {
-      const camPermission = await Camera.requestCameraPermission();
-      setHasPermission(camPermission === "granted");
-    })();
-  }, []);
+  // Attendance type states
+  const [checkInBeforeLunch, setCheckInBeforeLunch] = useState(false);
+  const [checkOutBeforeLunch, setCheckOutBeforeLunch] = useState(false);
+  const [checkInAfterLunch, setCheckInAfterLunch] = useState(false);
+  const [checkOutAfterLunch, setCheckOutAfterLunch] = useState(false);
 
-  // Auto start/stop camera on screen focus
+  // Request camera permission when screen is focused
   useFocusEffect(
     useCallback(() => {
-      setCameraActive(true); // when screen focused
-      return () => {
-        setCameraActive(false); // when screen blurred / navigated away
-      };
+      (async () => {
+        const camPermission = await Camera.requestCameraPermission();
+        setHasPermission(camPermission === "granted");
+
+        setInitialModalVisible(true);
+        setCameraActive(false);
+        setScanned(false);
+
+        // reset all checkboxes
+        setCheckInBeforeLunch(false);
+        setCheckOutBeforeLunch(false);
+        setCheckInAfterLunch(false);
+        setCheckOutAfterLunch(false);
+      })();
+
+      return () => setCameraActive(false);
     }, [])
   );
 
@@ -77,20 +90,38 @@ export default function EmployeeAttendance() {
         const name = await compareFace(photoUri);
 
         if (name) {
-          const today = new Date().toISOString().split("T")[0];
+          const now = new Date();
+          const today = now.toISOString().split("T")[0]; // YYYY-MM-DD
+          const currentTime = now.toLocaleTimeString("en-GB", {
+            hour12: false,
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          }); // HH:mm:ss
+
           const stored = await AsyncStorage.getItem("attendance");
           const attendance = stored ? JSON.parse(stored) : [];
 
+          const context = getContextLabel();
+
+          // Check if already marked
           const alreadyMarked = attendance.find(
-            (entry: { name: string; date: string }) =>
-              entry.name === name && entry.date === today
+            (entry: { name: string; date: string; context: string }) =>
+              entry.name === name &&
+              entry.date === today &&
+              entry.context === context
           );
 
           if (alreadyMarked) {
             setModalType("duplicate");
             setMatchedName(name);
           } else {
-            attendance.push({ name, date: today, time: new Date().toISOString() });
+            attendance.push({
+              name,
+              date: today,
+              time: currentTime, // 👈 add scan time here
+              context,
+            });
             await AsyncStorage.setItem("attendance", JSON.stringify(attendance));
             setModalType("success");
             setMatchedName(name);
@@ -110,6 +141,30 @@ export default function EmployeeAttendance() {
     }
   };
 
+  const getContextLabel = (): string => {
+    const parts: string[] = [];
+    if (checkInBeforeLunch) parts.push("Check In (Before Lunch)");
+    if (checkOutBeforeLunch) parts.push("Check Out (Before Lunch)");
+    if (checkInAfterLunch) parts.push("Check In (After Lunch)");
+    if (checkOutAfterLunch) parts.push("Check Out (After Lunch)");
+    return parts.join(", ") || "Unknown";
+  };
+
+  const handleStartScan = () => {
+    if (
+      !checkInBeforeLunch &&
+      !checkOutBeforeLunch &&
+      !checkInAfterLunch &&
+      !checkOutAfterLunch
+    ) {
+      Alert.alert("Please select at least one option before scanning.");
+      return;
+    }
+
+    setInitialModalVisible(false);
+    setCameraActive(true);
+  };
+
   const handleModalClose = () => {
     setModalVisible(false);
     setScanned(false);
@@ -117,11 +172,12 @@ export default function EmployeeAttendance() {
   };
 
   const handleGoBack = () => {
-    navigation.goBack(); // useFocusEffect will stop camera automatically
+    navigation.goBack();
   };
 
   if (!device) return <Text style={styles.centerText}>No Camera Found</Text>;
-  if (!hasPermission) return <Text style={styles.centerText}>Camera Permission Denied</Text>;
+  if (!hasPermission)
+    return <Text style={styles.centerText}>Camera Permission Denied</Text>;
 
   return (
     <View style={{ flex: 1 }}>
@@ -141,7 +197,56 @@ export default function EmployeeAttendance() {
         </View>
       )}
 
-      {/* Modal */}
+      {/* Initial Modal */}
+      <Modal visible={initialModalVisible} transparent animationType="fade">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Select Attendance Type</Text>
+
+            {/* Before Lunch */}
+            <Text style={styles.sectionTitle}>Before Lunch</Text>
+            <View style={styles.checkboxRow}>
+              <CheckBoxWithLabel
+                label="Check In"
+                value={checkInBeforeLunch}
+                onValueChange={setCheckInBeforeLunch}
+              />
+              <CheckBoxWithLabel
+                label="Check Out"
+                value={checkOutBeforeLunch}
+                onValueChange={setCheckOutBeforeLunch}
+              />
+            </View>
+
+            {/* After Lunch */}
+            <Text style={[styles.sectionTitle, { marginTop: 15 }]}>
+              After Lunch
+            </Text>
+            <View style={styles.checkboxRow}>
+              <CheckBoxWithLabel
+                label="Check In"
+                value={checkInAfterLunch}
+                onValueChange={setCheckInAfterLunch}
+              />
+              <CheckBoxWithLabel
+                label="Check Out"
+                value={checkOutAfterLunch}
+                onValueChange={setCheckOutAfterLunch}
+              />
+            </View>
+
+            <TouchableOpacity style={styles.modalBtn} onPress={handleStartScan}>
+              <Text style={styles.modalBtnText}>Start Scan</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.backBtn} onPress={handleGoBack}>
+              <Text style={styles.backBtnText}>⬅ Go Back</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Result Modal */}
       <Modal
         visible={modalVisible}
         transparent
@@ -156,24 +261,18 @@ export default function EmployeeAttendance() {
                 <Text style={styles.nameText}>{matchedName}</Text>
               </>
             )}
-
             {modalType === "error" && (
               <>
                 <Text style={styles.errorText}>❌ No Match Found</Text>
                 <Text style={styles.nameText}>Please try again</Text>
               </>
             )}
-
             {modalType === "duplicate" && (
               <>
                 <Text style={styles.errorText}>⚠ Already Marked</Text>
                 <Text style={styles.nameText}>{matchedName} - Today</Text>
               </>
             )}
-
-            <TouchableOpacity style={styles.backBtn} onPress={handleGoBack}>
-              <Text style={styles.backBtnText}>⬅ Go Back</Text>
-            </TouchableOpacity>
 
             <TouchableOpacity style={styles.modalBtn} onPress={handleModalClose}>
               <Text style={styles.modalBtnText}>Close</Text>
@@ -185,6 +284,21 @@ export default function EmployeeAttendance() {
   );
 }
 
+const CheckBoxWithLabel = ({
+  label,
+  value,
+  onValueChange,
+}: {
+  label: string;
+  value: boolean;
+  onValueChange: (val: boolean) => void;
+}) => (
+  <View style={styles.checkboxWithLabel}>
+    <CheckBox value={value} onValueChange={onValueChange} />
+    <Text style={styles.checkboxLabel}>{label}</Text>
+  </View>
+);
+
 const styles = StyleSheet.create({
   centerText: { marginTop: 100, textAlign: "center" },
   overlay: {
@@ -194,7 +308,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   backBtn: {
-    marginBottom: 12,
+    marginTop: 12,
     backgroundColor: "#444",
     paddingVertical: 10,
     paddingHorizontal: 20,
@@ -212,7 +326,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   modalBox: {
-    width: "80%",
+    width: "85%",
     backgroundColor: "#fff",
     padding: 20,
     borderRadius: 12,
@@ -240,9 +354,39 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 25,
     borderRadius: 8,
+    marginTop: 15,
+    width: "100%",
+    alignItems: "center",
   },
   modalBtnText: {
     color: "#fff",
     fontWeight: "bold",
+    fontSize: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 15,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    alignSelf: "flex-start",
+    marginBottom: 5,
+  },
+  checkboxRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+    marginBottom: 10,
+  },
+  checkboxWithLabel: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  checkboxLabel: {
+    marginLeft: 8,
+    fontSize: 16,
   },
 });

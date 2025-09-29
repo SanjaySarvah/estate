@@ -8,8 +8,8 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
+  SafeAreaView,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import LinearGradient from "react-native-linear-gradient";
 import * as Progress from 'react-native-progress';
@@ -51,7 +51,7 @@ export default function Summary() {
     averagePerEmployee: 0,
     targetWeight: 1500,
   });
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'weight'>('overview');
   const fadeAnim = useState(new Animated.Value(0))[0];
 
   useEffect(() => {
@@ -62,11 +62,11 @@ export default function Summary() {
       useNativeDriver: true,
     }).start();
 
-    // Dummy sample data (replace with AsyncStorage.getItem later)
+    // Sample data (replace with AsyncStorage or API)
     const sampleDivisionData: DivisionData[] = [
       { division: "Batalada", totalEmployees: 35, present: 32, absent: 3 },
       { division: "Balada", totalEmployees: 28, present: 27, absent: 1 },
-      // { division: "Sundarapatti", totalEmployees: 40, present: 39, absent: 1 },
+      { division: "Sundarapatti", totalEmployees: 40, present: 39, absent: 1 },
     ];
 
     const sampleAttendance: AttendanceSlots = {
@@ -94,7 +94,7 @@ export default function Summary() {
 
   const renderOverviewTab = () => (
     <Animated.View style={{ opacity: fadeAnim }}>
-      {/* Header with Stats */}
+      {/* Header Card */}
       <LinearGradient
         colors={['#6a11cb', '#2575fc']}
         style={styles.headerCard}
@@ -122,82 +122,76 @@ export default function Summary() {
       <Text style={styles.sectionTitle}>Attendance Slots</Text>
       <View style={styles.cardRow}>
         {Object.entries(attendanceSlots).map(([key, value], index) => (
-          <TouchableOpacity key={index} activeOpacity={0.9} style={styles.cardTouchable}>
-            <LinearGradient
-               colors={["#ff9966", "#ff5e62"]}
-              style={[styles.card, styles.cardWithShadow]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <Ionicons
-                name={
-                  key.includes("checkIn") ? "log-in-outline" : "log-out-outline"
-                }
-                size={26}
-                color="#fff"
-              />
-              <Text style={styles.cardTitle}>
-                {key
-                  .replace(/([A-Z])/g, " $1")
-                  .replace(/^./, (str) => str.toUpperCase())}
-              </Text>
-              <Text style={styles.cardValue}>{value}%</Text>
-              <Progress.Circle 
-                size={60} 
-                progress={value / 100} 
-                color="#fff" 
-                thickness={4} 
-                borderWidth={0}
-                showsText
-                formatText={() => `${value}%`}
-                style={styles.progressCircle}
-                textStyle={styles.circleText}
-              />
-            </LinearGradient>
-          </TouchableOpacity>
+          <LinearGradient
+            key={index}
+            colors={['#ff9966', '#ff5e62']}
+            style={styles.card}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Ionicons
+              name={key.includes("checkIn") ? "log-in-outline" : "log-out-outline"}
+              size={28}
+              color="#fff"
+            />
+            <Text style={styles.cardTitle}>
+              {key
+                .replace(/([A-Z])/g, " $1")
+                .replace(/^./, (str) => str.toUpperCase())}
+            </Text>
+            <Text style={styles.cardValue}>{value}%</Text>
+            <Progress.Circle
+              size={60}
+              progress={value / 100}
+              color="#fff"
+              thickness={4}
+              borderWidth={0}
+              showsText
+              formatText={() => `${value}%`}
+            />
+          </LinearGradient>
         ))}
       </View>
 
-      {/* Division-wise Count */}
+      {/* Division-wise Cards */}
       <Text style={styles.sectionTitle}>Division Wise Employees</Text>
       {divisionList.map((div, index) => {
         const attendancePercentage = getAttendancePercentage(div.present, div.totalEmployees);
         return (
-          <TouchableOpacity key={index} activeOpacity={0.9}>
-            <LinearGradient
+          <LinearGradient
+            key={index}
             colors={['#6a11cb', '#2575fc']}
-              style={[styles.divisionCard, styles.cardWithShadow]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <View style={styles.divisionHeader}>
-                <Text style={styles.divisionName}>{div.division}</Text>
-                <Text style={styles.divisionPercentage}>{attendancePercentage}%</Text>
+            style={styles.divisionCard}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <View style={styles.divisionHeader}>
+              <Text style={styles.divisionName}>{div.division}</Text>
+              <Text style={styles.divisionPercentage}>{attendancePercentage}%</Text>
+            </View>
+            <Progress.Bar
+              progress={attendancePercentage / 100}
+              width={width - 40}
+              height={8}
+              color="#fff"
+              borderRadius={4}
+              borderWidth={0}
+            />
+            <View style={styles.divisionStats}>
+              <View style={styles.statItem}>
+                <Ionicons name="people-outline" size={16} color="#fff" />
+                <Text style={styles.divisionText}>Total: {div.totalEmployees}</Text>
               </View>
-              <Progress.Bar 
-                progress={attendancePercentage / 100} 
-                width={width - 60} 
-                height={8}
-                color="#fff" 
-                borderRadius={4}
-                borderWidth={0}
-              />
-              <View style={styles.divisionStats}>
-                <View style={styles.statItem}>
-                  <Ionicons name="people-outline" size={16} color="#fff" />
-                  <Text style={styles.divisionText}>Total: {div.totalEmployees}</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Ionicons name="checkmark-outline" size={16} color="#fff" />
-                  <Text style={styles.divisionText}>Present: {div.present}</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Ionicons name="close-outline" size={16} color="#fff" />
-                  <Text style={styles.divisionText}>Absent: {div.absent}</Text>
-                </View>
+              <View style={styles.statItem}>
+                <Ionicons name="checkmark-outline" size={16} color="#fff" />
+                <Text style={styles.divisionText}>Present: {div.present}</Text>
               </View>
-            </LinearGradient>
-          </TouchableOpacity>
+              <View style={styles.statItem}>
+                <Ionicons name="close-outline" size={16} color="#fff" />
+                <Text style={styles.divisionText}>Absent: {div.absent}</Text>
+              </View>
+            </View>
+          </LinearGradient>
         );
       })}
     </Animated.View>
@@ -205,11 +199,10 @@ export default function Summary() {
 
   const renderWeightTab = () => (
     <Animated.View style={{ opacity: fadeAnim }}>
-      {/* Weight Report */}
       <Text style={styles.sectionTitle}>This Month's Weight Report</Text>
       <LinearGradient
-        colors={["#ff9966", "#ff5e62"]}
-        style={[styles.weightCard, styles.cardWithShadow]}
+        colors={['#ff9966', '#ff5e62']}
+        style={styles.weightCard}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
@@ -217,28 +210,20 @@ export default function Summary() {
           <Ionicons name="leaf-outline" size={28} color="#fff" />
           <Text style={styles.weightMonth}>{weightReport.month}</Text>
         </View>
-        
         <View style={styles.weightProgressContainer}>
-          <Progress.Circle 
-            size={width * 0.5} 
-            progress={weightReport.totalWeightKg / weightReport.targetWeight} 
-            color="#fff" 
-            thickness={12} 
+          <Progress.Circle
+            size={width * 0.5}
+            progress={weightReport.totalWeightKg / weightReport.targetWeight}
+            color="#fff"
+            thickness={12}
             borderWidth={0}
             showsText
             formatText={() => `${Math.round((weightReport.totalWeightKg / weightReport.targetWeight) * 100)}%`}
-            textStyle={styles.progressText}
           />
           <View style={styles.weightStats}>
-            <Text style={styles.weightStatText}>
-              🌱 Collected: {weightReport.totalWeightKg} kg
-            </Text>
-            <Text style={styles.weightStatText}>
-              🎯 Target: {weightReport.targetWeight} kg
-            </Text>
-            <Text style={styles.weightStatText}>
-              ⚖️ Avg/Employee: {weightReport.averagePerEmployee} kg
-            </Text>
+            <Text style={styles.weightStatText}>🌱 Collected: {weightReport.totalWeightKg} kg</Text>
+            <Text style={styles.weightStatText}>🎯 Target: {weightReport.targetWeight} kg</Text>
+            <Text style={styles.weightStatText}>⚖️ Avg/Employee: {weightReport.averagePerEmployee} kg</Text>
           </View>
         </View>
       </LinearGradient>
@@ -246,17 +231,17 @@ export default function Summary() {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Tab Navigation */}
       <View style={styles.tabContainer}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.tabButton, activeTab === 'overview' && styles.activeTab]}
           onPress={() => setActiveTab('overview')}
         >
           <Ionicons name="stats-chart-outline" size={20} color={activeTab === 'overview' ? '#6a11cb' : '#666'} />
           <Text style={[styles.tabText, activeTab === 'overview' && styles.activeTabText]}>Overview</Text>
         </TouchableOpacity>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.tabButton, activeTab === 'weight' && styles.activeTab]}
           onPress={() => setActiveTab('weight')}
         >
@@ -268,14 +253,14 @@ export default function Summary() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {activeTab === 'overview' ? renderOverviewTab() : renderWeightTab()}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: "#f8f9fa" 
+  container: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
   },
   scrollContent: {
     padding: 15,
@@ -311,57 +296,35 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginVertical: 15,
     color: "#444",
-    marginLeft: 5,
   },
-  cardRow: { 
-    flexDirection: "row", 
-    flexWrap: "wrap", 
+  cardRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "space-between",
     marginBottom: 10,
   },
-  cardTouchable: {
-    width: '48%',
-    marginBottom: 15,
-  },
   card: {
-    width: '100%',
+    width: '48%',
     padding: 15,
     borderRadius: 14,
     alignItems: "center",
     justifyContent: 'center',
     aspectRatio: 1,
+    marginBottom: 15,
   },
-  cardWithShadow: {
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-    shadowOpacity: 0.27,
-    shadowRadius: 4.65,
-    elevation: 6,
-  },
-  cardTitle: { 
-    fontSize: 14, 
-    color: "#fff", 
+  cardTitle: {
+    fontSize: 14,
+    color: "#fff",
     textAlign: "center",
     marginTop: 10,
     fontWeight: '500',
   },
-  cardValue: { 
-    fontSize: 24, 
-    color: "#fff", 
-    fontWeight: "bold", 
+  cardValue: {
+    fontSize: 24,
+    color: "#fff",
+    fontWeight: "bold",
     marginTop: 5,
     marginBottom: 10,
-  },
-  progressCircle: {
-    marginTop: 5,
-  },
-  circleText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
   },
   divisionCard: {
     padding: 20,
@@ -374,27 +337,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 15,
   },
-  divisionName: { 
-    fontSize: 18, 
-    fontWeight: "bold", 
-    color: "#fff" 
+  divisionName: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#fff"
   },
   divisionPercentage: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#fff',
   },
-  divisionStats: { 
-    flexDirection: "row", 
-    justifyContent: "space-between", 
+  divisionStats: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginTop: 15,
   },
   statItem: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  divisionText: { 
-    color: "#fff", 
+  divisionText: {
+    color: "#fff",
     fontSize: 14,
     marginLeft: 5,
   },
@@ -402,6 +365,7 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 14,
     marginBottom: 20,
+    alignItems: 'center',
   },
   weightHeader: {
     flexDirection: 'row',
@@ -409,7 +373,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   weightMonth: {
-    color: "#fff", 
+    color: "#fff",
     fontSize: 18,
     fontWeight: 'bold',
     marginLeft: 10,
@@ -421,16 +385,12 @@ const styles = StyleSheet.create({
   weightStats: {
     marginTop: 20,
     width: '100%',
+    alignItems: 'center',
   },
   weightStatText: {
-    color: "#fff", 
+    color: "#fff",
     fontSize: 16,
     marginVertical: 5,
-  },
-  progressText: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: 'bold',
   },
   tabContainer: {
     flexDirection: 'row',
